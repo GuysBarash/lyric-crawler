@@ -20,14 +20,13 @@
       <file leaf-file-name="readweb.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/readweb.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="29">
-              <caret line="53" column="0" lean-forward="true" selection-start-line="53" selection-start-column="0" selection-end-line="53" selection-end-column="0" />
+            <state relative-caret-position="-313">
+              <caret line="14" column="10" lean-forward="false" selection-start-line="14" selection-start-column="10" selection-end-line="14" selection-end-column="10" />
               <folding>
                 <element signature="e#47#97#0" expanded="true" />
                 <element signature="e#791#869#0" expanded="false" />
                 <element signature="e#893#1532#0" expanded="false" />
-                <element signature="e#1671#2322#0" expanded="false" />
-                <element signature="e#2451#3015#0" expanded="false" />
+                <element signature="e#1671#3230#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -370,14 +369,13 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/readweb.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="29">
-          <caret line="53" column="0" lean-forward="true" selection-start-line="53" selection-start-column="0" selection-end-line="53" selection-end-column="0" />
+        <state relative-caret-position="-313">
+          <caret line="14" column="10" lean-forward="false" selection-start-line="14" selection-start-column="10" selection-end-line="14" selection-end-column="10" />
           <folding>
             <element signature="e#47#97#0" expanded="true" />
             <element signature="e#791#869#0" expanded="false" />
             <element signature="e#893#1532#0" expanded="false" />
-            <element signature="e#1671#2322#0" expanded="false" />
-            <element signature="e#2451#3015#0" expanded="false" />
+            <element signature="e#1671#3230#0" expanded="false" />
           </folding>
         </state>
       </provider>
