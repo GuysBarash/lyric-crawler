@@ -10,7 +10,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from lxml import etree
 from io import StringIO, BytesIO
 
-dag_nahash_page = 'http://shironet.mako.co.il/artist?type=works&lang=1&prfid=333'
+Artist_dag_nahash = 'http://shironet.mako.co.il/artist?type=works&lang=1&prfid=333'
+Artist_Artzi = 'http://shironet.mako.co.il/artist?type=works&lang=1&prfid=975'
+Artist_Aviv_Geffen = 'http://shironet.mako.co.il/artist?type=works&lang=1&prfid=34'
+global english
 english = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
@@ -49,45 +52,68 @@ def worker(url):
     q.put([songName, words])
 
 
-## Songs url extranctors:
+# Input: an artist page with songs links
+# Output: a list of all the pages with songs (page 1, page 2 , .. )
+def get_all_urls(url):
+    urls = []
+    driver = init_driver()
+
+    c_url = url
+    driver.get(c_url)
+    html = driver.page_source
+    soup = bs4.BeautifulSoup(html, 'lxml')
+    next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda (x): (x.find('>>') >= 0))
+    urls.append(c_url)
+    while len(next_page) > 0:
+        c_url = r'http://shironet.mako.co.il' + next_page[0].get('href')
+        urls.append(c_url)
+        driver.get(c_url)
+        html = driver.page_source
+        soup = bs4.BeautifulSoup(html, 'lxml')
+        next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda (x): (x.find('>>') >= 0))
+
+    driver.quit()
+    return urls
+
+
+# Input: an artist page with songs links
+# Output: a dict of all the songs and the links
 def get_urls_by_songs_page(url):
-    table_tag = r'/html/body/table[2]/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]/table/tbody/tr/td[2]/table/tbody/tr[5]/td/table/tbody'
+    table_tag = r'/html/body/table[2]/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]/table/tbody/tr/td[2]/table/tbody/tr[5]/td/table'
     urls = dict()
     driver = init_driver()
     driver.get(url)
     html = driver.page_source
     driver.quit()
-
     parser = etree.HTMLParser()
     root = etree.parse(StringIO(html), parser)
-    song_elements = root.xpath(table_tag + '//*[contains(@class, \'artist_player_songlist\')]')
 
-    soup = BeautifulSoup(root, 'lxml')
-    mydivs = soup.findAll("a", {"class": "artist_player_songlist"})
-    for song in mydivs:
-        urls[song.contents[0]] = 'http://shironet.mako.co.il' + song.get_attribute_list('href')[0]
+    song_elements = root.xpath(table_tag + '//*[contains(@class, \'artist_player_songlist\')]')
+    for song in song_elements:
+        urls[song.text] = 'http://shironet.mako.co.il' + song.get('href')
     return urls
 
 
-# /html/body/table[2]/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]/table
-
 if __name__ == "__main__":
-    # driver = init_driver()
-    # lookup(driver, "Selenium")
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument("--mute-audio")
-    urls = get_urls_by_songs_page(dag_nahash_page)
+
+    all_url = get_all_urls(Artist_Aviv_Geffen)
+    all_songs = dict()
+    for url in all_url:
+        all_songs.update(get_urls_by_songs_page(url))
+
     counter = 0
-    for key in urls.keys():
-        print u"[{:^3}][{:^35}]\t{}".format(counter, key, urls[key])
+    for key in all_songs.keys():
+        print u"[{:^3}][{:^35}]\t{}".format(counter, key, all_songs[key])
         counter += 1
-        # q = Queue()
-        # p = Pool(cpu_count(), initializer=worker_init, initargs=(q, english))
-        # p.map(worker, urls)
-        # p.terminate()
-        #
-        # counter = 0
-        # while not q.empty():
-        #     item = q.get()
-        #     print u"[{}]\tTitle: {}".format(counter, item[0])
-        #     counter += 1
+    # q = Queue()
+    # p = Pool(cpu_count(), initializer=worker_init, initargs=(q, english))
+    # p.map(worker, urls)
+    # p.terminate()
+    #
+    # counter = 0
+    # while not q.empty():
+    #     item = q.get()
+    #     print u"[{}]\tTitle: {}".format(counter, item[0])
+    #     counter += 1
