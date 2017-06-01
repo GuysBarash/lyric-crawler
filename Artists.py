@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Artist_Hadag_nahash = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=333', 'Artist_Hadag_nahash']
+# Artist_Shlomo_Artzi = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=975', 'Artist_Shlomo_Artzi']
+# Artist_Aviv_Geffen = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=34', 'Artist_Aviv_Geffen']
+# Artist_shfiyut_zmanit = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=1004', 'Artist_shfiyut_zmanit']
+# Artist_Avi_Toledano = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=30', 'Artist_Avi_Toledano']
+# Artist_Avner_Gadasi = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=42', 'Artist_Avner_Gadasi']
+# Artist_Avraham_tal = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=7335', 'Artist_Avraham_tal']
+# Artist_Adam = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=56', 'Artist_Adam']
+# Artist_Ehud_Banai = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=57', 'Artist_Ehud_banai']
+# Artist_Meir_Ariel = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=605', 'Artist_Meir_Ariel']
+
+Artist_Evyatar_Banai = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=41', 'Artist_Evyatar_Banai']
+Artist_Uzi_Hitman = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=778', 'Artist_Uzi_Hitman']
+Artist_Oshik_levy = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=85', 'Artist_Oshik_levy']
+Artist_hahinoam_nini = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=87', 'Artist_hahinoam_nini']
+Artist_Eyal_Golan = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=92', 'Artist_Eyal_Golan']
+Artist_Alexansra = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=1660', 'Artist_Alexansra']
+Artist_Ania_buckshtien = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=6736', 'Artist_Ania_buckshtien']
+Artist_Ester_Ofarim = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=154', 'Artist_Ester_Ofarim']
+Artist_Ariel_Zilber = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=162', 'Artist_Ariel_Zilber']
+Artist_Arik_Einstien = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=166', 'Artist_Arik_Einstien']
+Artist_Arik_Berman = ['http://shironet.mako.co.il/artist?type=works&lang=1&prfid=5099', 'Artist_Arik_Berman']
