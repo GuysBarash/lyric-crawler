@@ -10,11 +10,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from lxml import etree
 from io import StringIO
 from Logger import Logger
+import datetime
 
 global english
-global q
+global logger
 english = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-q = Queue()
 
 
 def init_driver():
@@ -24,18 +24,9 @@ def init_driver():
 
 
 # Songs Extractors
-def worker_init(qt, englisht):
+def analyze_given_song_by_link(driver, url):
     global q
-    q = qt
-    global english
-    english = englisht
-    print "Fork"
-
-
-def worker(driver, url):
-    global songs_counter
-    songs_counter += 1
-    logger.log_print("[{:>5}] Working: {}".format(songs_counter, url))
+    logger.log_print("Working: {}".format(url))
     while True:
         try:
             driver.get(url)
@@ -54,10 +45,12 @@ def worker(driver, url):
                     words += line_words
 
             songName = unicode(songName)
-            q.put([songName, words])
+            q.append([songName, words])
             break
         except Exception as e:
-            logger.log_print("Fail to load at : {}".format(url))
+            logger.log_warning("Fail to load at : {}".format(url))
+            logger.log_warning(str(e))
+            raise e
 
 
 # Input: an artist page with songs links
@@ -106,18 +99,32 @@ def get_all_urls(url):
 
 
 def read_all_songs(urls):
+    global q
     total = len(urls)
-
     driver = init_driver()
     for url in urls:
-        worker(driver, url)
+        while True:
+            try:
+                analyze_given_song_by_link(driver, url)
+                break
+            except Exception as e:
+                logger.log_print("Rebooting driver")
+                driver = init_driver()
 
     driver.quit()
     return [total]
 
 
+def handle_prep(loggert):
+    global logger
+    logger = loggert
+    logger.log_print('Fork')
+
+
 def handle(unit):
-    print "Handling {}".format(unit[1])
+    global q
+    q = []
+    logger.log_print("Handling {}".format(unit[1]))
     url = unit[0]
     fileName = unit[1] + '.txt'
 
@@ -132,7 +139,6 @@ def handle(unit):
             logger.log_print("Connection Fail for {}. Re-attempting".format(unit[1]))
         finally:
             pass
-
     [amount] = read_all_songs(all_url.values())
     try:
         f = file(fileName, 'w+')
@@ -140,8 +146,8 @@ def handle(unit):
         f.write('#Artist\n')
         f.write(hebrew_name.encode('utf8') + '\n')
         index = 0
-        while not q.empty():
-            [songName, words] = q.get()
+        for item in q:
+            [songName, words] = item
             f.write("#NAME[{}]\n".format(index))
             f.write(songName.encode('utf8'))
             f.write('\n#DONE_NAME')
@@ -154,7 +160,8 @@ def handle(unit):
             f.write('\n#DONE_WORDS\n')
 
     except Exception as e:
-        logger.log_print("ERROR")
+        logger.log_error("ERROR")
+        logger.log_error(str(e))
         raise e
     finally:
         f.write('#FIN')
@@ -164,15 +171,22 @@ def handle(unit):
 
 if __name__ == "__main__":
     global logger
-    global songs_counter
-    songs_counter = 0
-
     logger = Logger()
-    logger.initThread("Report.txt")
+    u_sig = datetime.datetime.now().strftime("_%H%M_%d_%m_%Y")
+    logger.initThread("Report{}.txt".format(u_sig))
 
+    # for local_artist in locals().keys():
+    #     if 'Artist_' in local_artist:
+    #         handle(locals()[local_artist])
+
+    all_units = []
     for local_artist in locals().keys():
         if 'Artist_' in local_artist:
-            handle(locals()[local_artist])
+            all_units.append(locals()[local_artist])
+
+    p = Pool(processes=cpu_count(), initializer=handle_prep, initargs=(logger,))
+    p.imap_unordered(handle, all_units)
+    p.close()
+    p.join()
 
     logger.log_close()
-    q.close()

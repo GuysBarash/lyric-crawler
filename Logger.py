@@ -33,15 +33,15 @@ import os
 # logger.log_print("This is an example text")
 #
 # the output will be printed:
-# [ DEFAULT  ][      MAIN      ][General Flow][    0.0     ( 0 )] This is an example text
+# [ DEFAULT  ][      MAIN      ][General  ][    0.0     ( 0 )] This is an example text
 #
 # [ DEFAULT  ]
 #  is the level of the information (from LoggerLevel class) [      MAIN      ] is the role of the sender,
 #  can be either [      MAIN      ],[    Thread-<ID>    ] or [PROCESS    <ID>]
 #
-# [General Flow]
+# [General  ]
 # is which segment of the code is currently running, it's free speech with default value as
-#  "General flow" , it can but should not exceed 10 characters.
+#  "General " , it can but should not exceed 10 characters.
 #
 # [    0.0     ( 0 )]
 # The second number is the timer currently being use, by default it's timer 0 which started with the initialization
@@ -115,9 +115,9 @@ import os
 # Output:
 # [ DEFAULT  ][      MAIN      ][MODULE NAME][   0.016    ( 0 )] MODULE NAME
 # The third box from now (until change) will mention the module name.
-# The default value is "General Flow"
+# The default value is "General"
 # To return to default wither use:
-# logger.switcheModule("General Flow" )
+# logger.switcheModule("General" )
 # or:
 # logger.switcheModuleToDefault()
 #
@@ -140,24 +140,42 @@ import os
 # each message sent to the logger will be compared with max(current_module_filter_level,general_filter_level)
 # if that message level is LOWER than that - it will not be printed.
 
+###########################################################
+# Squelching
+###########################################################
+# To remove the logger labels and remain only with the string itself use the following:
+#
+# logger.squelch()
+# or
+# logger.squelch(True)
+#
+# the output of logger.log_print('an example') will now be:
+# an example
+# instead of the usual:
+#[ DEFAULT  ][      MAIN      ][MODULE NAME][   0.016    ( 0 )] an example
+#
+# To cancel the effect use:
+#
+# logger.squelch(False)
 
 
 class LoggerLevel(Enum):
-    DEFAULT = 0
+    DEFLT = 0
     DEBUG = 10
     INFO = 20
     WARN = 30
     ERR = 40
-    CRITICAL = 50
-    EXCEPTION = 60
+    CRTCL = 50
+    EXCPT = 60
 
 
 class Msg:
     def __init__(self, str, timer=0, reset=False, chooseDefault=-1,
                  set_current_module=None,
-                 level=LoggerLevel.DEFAULT,
+                 level=LoggerLevel.DEFLT,
                  module_to_filter=None,
-                 module_to_filter_designated_level=LoggerLevel.DEFAULT):
+                 module_to_filter_designated_level=LoggerLevel.DEFLT,
+                 squelch=None):
         self.str = str
         self.timer = timer
         self.stamp = datetime.now()
@@ -167,6 +185,7 @@ class Msg:
         self.chooseDefault = chooseDefault  # does a new default timer required
         self.set_current_module = set_current_module
         self.level = level
+        self.squelch = squelch
         assert self.level in LoggerLevel, "ERROR: information level [{}] is not recognized".format(self.level)
 
         self.module_to_filter = module_to_filter
@@ -187,12 +206,18 @@ class Logger:
         self.timers[0] = datetime.now()
         self.defaultTimer = 0
 
-        self.defaultModule = 'General Flow'
+        self.defaultModule = 'General'
         self.currentModule = self.defaultModule
         self.modules = dict()
-        self.modules[self.defaultModule] = LoggerLevel.DEFAULT
-        self.modules["__ALL__"] = LoggerLevel.DEFAULT
+        self.modules[self.defaultModule] = LoggerLevel.DEFLT
+        self.modules["__ALL__"] = LoggerLevel.DEFLT
         self.log_print("Logger initialized.", timer=0)
+        self._squelch = False
+
+    # Squelch
+    def squelch(self, val=True):
+        msg = Msg("Squalch is now {}".format(val), squelch=val)
+        self.log_queue.put(msg)
 
     # DISABLE logger:
     def disable_logger(self):
@@ -233,7 +258,7 @@ class Logger:
         self.log_queue.put(msg)
 
     # Print functions
-    def log_print(self, str="", level=LoggerLevel.DEFAULT, timer=None):
+    def log_print(self, str="", level=LoggerLevel.DEFLT, timer=None):
         if not self.enable:
             return
 
@@ -254,10 +279,10 @@ class Logger:
         self.log_print(str, level=LoggerLevel.ERR)
 
     def log_critical(self, str):
-        self.log_print(str, level=LoggerLevel.CRITICAL)
+        self.log_print(str, level=LoggerLevel.CRTCL)
 
     def log_exception(self, str):
-        self.log_print(str, level=LoggerLevel.EXCEPTION)
+        self.log_print(str, level=LoggerLevel.EXCPT)
 
     # Thread control
     def initThread(self, fout=None):
@@ -291,7 +316,7 @@ class Logger:
 
         Logger.log_t = Thread(target=Logger.logger_thread, args=(logger.log_queue,))
 
-        record = "[Info level][WORKER   ][ENVIRONMENT ][TIME     (TIMER )] Text msg."
+        record = "[Info ][  WORKER ][ENVIRONMNT][TIME (TIMER )] Text msg."
         header = "--------------------------------------------------------------------------------"
         print record
         print header
@@ -315,6 +340,10 @@ class Logger:
                     logger.timers[pckg.chooseDefault] = pckg.stamp
                 logger.defaultTimer = pckg.chooseDefault
 
+            # Handle squalching
+            if not pckg.squelch is None:
+                logger._squelch = pckg.squelch
+
             # Handle timer reset
             if pckg.reset:
                 key = pckg.timer
@@ -324,8 +353,8 @@ class Logger:
             if not (pckg.set_current_module is None):
                 logger.currentModule = pckg.set_current_module
                 if not (logger.currentModule in logger.modules.keys()):
-                    logger.modules[pckg.set_current_module] = LoggerLevel.DEFAULT
-            level_stamp = "[{:^12}]".format(logger.currentModule)
+                    logger.modules[pckg.set_current_module] = LoggerLevel.DEFLT
+            level_stamp = "[{:^10}]".format(logger.currentModule)
 
             # Handle module filtering
             if not (pckg.module_to_filter is None):
@@ -346,12 +375,15 @@ class Logger:
             # Determine time
             key = pckg.timer if pckg.timer in logger.timers.keys() else logger.defaultTimer
             timeDelta = (pckg.stamp - logger.timers[key]).total_seconds()
-            timeStamp = "[ {0:^10} ({1:^3})]".format(timeDelta, key)
+            timeStamp = "[ {0:^8.2f} ({1:^3})]".format(timeDelta, key)
 
             # information level handling
-            info_level_stamp = "[{:^10}]".format(pckg.level.name)
+            info_level_stamp = "[{:^5}]".format(pckg.level.name)
 
-            record = "{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+            if logger._squelch:
+                record = "{0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+            else:
+                record = "{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
             print record
             if (not (Logger.fout is None)) and (not Logger.fout.closed):
                 Logger.fout.write("%s\n" % record)
