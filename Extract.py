@@ -27,7 +27,7 @@ def extract(fname):
     checkline('#Artist', line, fname)
     line = f.readline()
     unit.append(line.replace('\n', ''))
-
+    all_words =[]
     all_songs = dict()
     while True:
         line = f.readline()
@@ -44,7 +44,9 @@ def extract(fname):
             line = f.readline()
             while not line.startswith("#DONE_WORDS"):
                 line = line.replace('\n', '')
-                all_songs[curr_song_name] += [w for w in line.split('\t') if w != '']
+                curr_line_words = [w for w in line.split('\t') if w != '']
+                all_songs[curr_song_name] += curr_line_words
+                all_words == curr_line_words
                 line = f.readline()
 
         else:
@@ -52,6 +54,7 @@ def extract(fname):
             logger.log_error('Line: {}'.format(line))
             raise
     unit.append(all_songs)
+    unit.append(all_words)
     # logger.log_print("DONE {}".format(fname))
     return unit
 
@@ -65,7 +68,7 @@ def worker_init(loggert, ):
 def worker(fname):
     curr_item = extract(fname)
     logger.log_print(curr_item[0])
-    return curr_item[0]
+    return curr_item
 
 
 if __name__ == '__main__':
