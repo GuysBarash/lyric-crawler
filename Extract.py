@@ -4,6 +4,7 @@
 import os
 from Logger import Logger
 from multiprocessing import Queue, Pool, cpu_count
+from collections import Counter
 
 
 def checkline(expected, line, fname):
@@ -27,7 +28,7 @@ def extract(fname):
     checkline('#Artist', line, fname)
     line = f.readline()
     unit.append(line.replace('\n', ''))
-    all_words =[]
+    all_words = []
     all_songs = dict()
     while True:
         line = f.readline()
@@ -44,9 +45,9 @@ def extract(fname):
             line = f.readline()
             while not line.startswith("#DONE_WORDS"):
                 line = line.replace('\n', '')
-                curr_line_words = [w for w in line.split('\t') if w != '']
+                curr_line_words = [w for w in line.split('\t') if len(w) >2]
                 all_songs[curr_song_name] += curr_line_words
-                all_words == curr_line_words
+                all_words += curr_line_words
                 line = f.readline()
 
         else:
@@ -86,5 +87,22 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
+    all_words = []
+    for item in pool_ret:
+        all_words += item[2]
     logger.log_print("**************")
+    logger.log_print("To histogram")
+    word_counts = Counter(all_words)
+    logger.log_print("Graph")
+
+    mst_common = dict()
+
+    logger.squelch()
+    for item in word_counts.most_common(35):
+        mst_common[item[0]] = item[1]
+        logger.log_print("{}\t{}".format(item[0], item[1]))
+
+    logger.squelch(False)
+    logger.log_print()
+    logger.log_print("Total of {} different words.".format(len(word_counts)))
     logger.log_close()
