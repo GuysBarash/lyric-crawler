@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from Artists import *
+
 from multiprocessing import Queue, Pool, cpu_count
 import re
 from selenium import webdriver
