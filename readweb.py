@@ -11,7 +11,7 @@ from lxml import etree
 from io import StringIO
 from Logger import Logger
 import datetime
-
+from Artists import *
 global english
 global logger
 english = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -118,7 +118,7 @@ def read_all_songs(urls):
 def handle_prep(loggert):
     global logger
     logger = loggert
-    logger.log_print('Fork')
+    logger.log_print('Fork {}'.format(value['Val']))
 
 
 def handle(unit):

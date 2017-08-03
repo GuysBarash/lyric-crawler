@@ -135,26 +135,52 @@ def tokens_per_artist_filtered(pool_ret, reshuffle=200):
     logger.squelch(False)
 
 
-def tokens_per_artist(pool_ret, reshuffle=200):
+def tokens_per_artist(pool_ret, reshuffle=200, circular=True):
     thrsh = average_number_of_words(pool_ret)
     logger.squelch(True)
     logger.log_print("Tokens per {} words, repeat {} times:".format(thrsh, reshuffle))
     logger.log_print()
+
+    df_o = pd.DataFrame()
+    df_o['Artist_name'] = []
+    df_o['Tokens'] = []
+    df = df_o.copy()
+
     for item in pool_ret:
         if len(item[2]) >= thrsh:
             t_avg = 0
             for i in range(reshuffle):
                 t = copy.copy(item[2])
-                st_point = random.randint(0, len(t) - 1)
-                if st_point + thrsh < len(t):
-                    nt = t[st_point:st_point + thrsh]
+                if circular:
+                    st_point = random.randint(0, len(t) - 1)
+                    if st_point + thrsh < len(t):
+                        nt = t[st_point:st_point + thrsh]
+                    else:
+                        nt = t[st_point:] + t[: (st_point + thrsh) % len(t)]
+
                 else:
-                    nt = t[st_point:] + t[: (st_point + thrsh) % len(t)]
+                    random.shuffle(t)
+                    nt = t[:thrsh]
 
                 assert len(nt) == thrsh, "ERROR of length"
                 t_avg += len(set(nt))
             avg = t_avg / reshuffle
             logger.log_print("{}\t{}".format(item[0], avg))
+
+            df_t = df_o.copy()
+            df_o['Artist_name'] = [item[0]]
+            df_o['Tokens'] = [avg]
+            df = pd.concat([df, df_t], ignore_index=True)
+
+    exstra = ''
+    if circular:
+        exstra = '_Circular'
+
+    excel_full_path = 'C:\\Repos\\SongReader\\Vector' + '\\' + 'Tokens_per_artist{}.xlsx'.format(exstra)
+    logger.log_print("To excel at {}".format(excel_full_path))
+    xl_writer = pd.ExcelWriter(excel_full_path, engine='xlsxwriter', options={'encoding': 'utf-8'})
+    df.to_excel(xl_writer, sheet_name='{}_samples'.format(reshuffle),index=False)
+    xl_writer.close()
 
     logger.log_print()
     logger.squelch(False)
@@ -334,10 +360,10 @@ if __name__ == '__main__':
         # item[1] : dict , key= song_name , value= list_of_words
         # item[2] : list of all words
 
-    # dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
-    # dic = open_dict(dict_location)
-
-    tokens_per_artist(all_units, reshuffle=400)
+    dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
+    dic = open_dict(dict_location)
+    Artist_to_vector(all_units)
+    # tokens_per_artist(all_units, reshuffle=400, circular=False)
 
     logger.log_print()
     logger.log_close()

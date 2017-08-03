@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from datetime import datetime
 from multiprocessing import Queue
 from threading import Thread
@@ -152,7 +155,7 @@ import os
 # the output of logger.log_print('an example') will now be:
 # an example
 # instead of the usual:
-#[ DEFAULT  ][      MAIN      ][MODULE NAME][   0.016    ( 0 )] an example
+# [ DEFAULT  ][      MAIN      ][MODULE NAME][   0.016    ( 0 )] an example
 #
 # To cancel the effect use:
 #
@@ -175,7 +178,7 @@ class Msg:
                  level=LoggerLevel.DEFLT,
                  module_to_filter=None,
                  module_to_filter_designated_level=LoggerLevel.DEFLT,
-                 squelch=None):
+                 squelch=None, console_enabled=None):
         self.str = str
         self.timer = timer
         self.stamp = datetime.now()
@@ -186,6 +189,7 @@ class Msg:
         self.set_current_module = set_current_module
         self.level = level
         self.squelch = squelch
+        self.console_enabled = console_enabled
         assert self.level in LoggerLevel, "ERROR: information level [{}] is not recognized".format(self.level)
 
         self.module_to_filter = module_to_filter
@@ -213,6 +217,7 @@ class Logger:
         self.modules["__ALL__"] = LoggerLevel.DEFLT
         self.log_print("Logger initialized.", timer=0)
         self._squelch = False
+        self.console_enabled = True
 
     # Squelch
     def squelch(self, val=True):
@@ -225,7 +230,12 @@ class Logger:
 
     def enable_logger(self):
         self.enable = True
-
+        
+    def ena_logger_console(self, val=True):
+        msg = Msg("Logger console is now %s." % ("enabled" if val else "disabled"), 
+                  console_enabled = val)
+        self.log_queue.put(msg)
+        
     # Modules functions:
     def switcheModule(self, chosenModule):
         msg = Msg("Current module changed to {}".format(chosenModule), set_current_module=chosenModule)
@@ -343,6 +353,9 @@ class Logger:
             # Handle squalching
             if not pckg.squelch is None:
                 logger._squelch = pckg.squelch
+                
+            if pckg.console_enabled is not None:
+                logger.console_enabled = pckg.console_enabled
 
             # Handle timer reset
             if pckg.reset:
@@ -366,16 +379,16 @@ class Logger:
                 continue
 
             # Determine main/process/thread
-            role = "{:^9}".format("MAIN")
+            role = "{:^8}".format("MAIN")
             if pckg.pid != logger.masterPid:
-                role = "PID {:>5}".format(pckg.pid)
+                role = "PID {:#06X}".format(pckg.pid).replace('0X', '')
             elif pckg.tid != logger.masterTid:
-                role = "TID {:>5}".format(pckg.tid.replace('Thread-', ''))
+                role = "TID {:#06X}".format(int(pckg.tid.replace('Thread-', ''))).replace('0X', '')
 
             # Determine time
             key = pckg.timer if pckg.timer in logger.timers.keys() else logger.defaultTimer
             timeDelta = (pckg.stamp - logger.timers[key]).total_seconds()
-            timeStamp = "[ {0:^8.2f} ({1:^3})]".format(timeDelta, key)
+            timeStamp = "[{0:>7.2f} ({1:>2})]".format(timeDelta, key)
 
             # information level handling
             info_level_stamp = "[{:^5}]".format(pckg.level.name)
@@ -383,10 +396,14 @@ class Logger:
             if logger._squelch:
                 record = "{0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
             else:
-                record = "{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
-            print record
+                record = u"{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+            if logger.console_enabled:
+                print record
+            #else:
+            #    print "not allowed to print: %s" % record
             if (not (Logger.fout is None)) and (not Logger.fout.closed):
-                Logger.fout.write("%s\n" % record)
+                #Logger.fout.write("%s\n" % record)
+                Logger.fout.write("{}\n".format(record.encode('utf-8')))
 
 
 Logger.log_t = None
