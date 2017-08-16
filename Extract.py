@@ -179,7 +179,7 @@ def tokens_per_artist(pool_ret, reshuffle=200, circular=True):
     excel_full_path = 'C:\\Repos\\SongReader\\Vector' + '\\' + 'Tokens_per_artist{}.xlsx'.format(exstra)
     logger.log_print("To excel at {}".format(excel_full_path))
     xl_writer = pd.ExcelWriter(excel_full_path, engine='xlsxwriter', options={'encoding': 'utf-8'})
-    df.to_excel(xl_writer, sheet_name='{}_samples'.format(reshuffle),index=False)
+    df.to_excel(xl_writer, sheet_name='{}_samples'.format(reshuffle), index=False)
     xl_writer.close()
 
     logger.log_print()
@@ -338,6 +338,35 @@ def open_dict(dict_location):
     return dic
 
 
+def dump(df, fname='vec_norm', path=None):
+    if path is None:
+        excel_full_path = 'C:\\Repos\\SongReader\\Vector' + '\\' + fname + '.xlsx'
+    else:
+        excel_full_path = path + '\\' + fname + '.xlsx'
+    logger.log_print("To excel at {}".format(excel_full_path))
+    xl_writer = pd.ExcelWriter(excel_full_path, engine='xlsxwriter', options={'encoding': 'utf-8'})
+    df.to_excel(xl_writer, sheet_name='vectorized')
+    xl_writer.close()
+
+
+def get_raw_data(ret_pool):
+    logger.log_print("Extracting raw data")
+    path = r'C:\Repos\SongReader\Vector'
+    cols = ['Songs', 'Total words', 'mean per song', 'Var per song']
+    df = pd.DataFrame(columns=cols)
+    for item in ret_pool:
+        name = item[0]
+        songDict = item[1]
+        num_of_songs = len(songDict.keys())
+        songs_vector = [len(x) for x in songDict.itervalues()]
+        mean = np.mean(songs_vector)
+        std = np.std(songs_vector)
+        sum = np.sum(songs_vector)
+        row = pd.Series([num_of_songs, sum, mean, std], index=cols, name=name)
+        df = df.append(row)
+    dump(df, 'Raw_data', path)
+
+
 if __name__ == '__main__':
     global logger
     logger = Logger()
@@ -360,9 +389,10 @@ if __name__ == '__main__':
         # item[1] : dict , key= song_name , value= list_of_words
         # item[2] : list of all words
 
-    dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
-    dic = open_dict(dict_location)
-    Artist_to_vector(all_units)
+    # get_raw_data(all_units)
+    # dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
+    # dic = open_dict(dict_location)
+    # Artist_to_vector(all_units)
     # tokens_per_artist(all_units, reshuffle=400, circular=False)
 
     logger.log_print()

@@ -4,7 +4,9 @@ import os, shutil
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import preprocessing
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.cm as cm
+from sklearn import preprocessing, decomposition
 from sklearn.metrics.pairwise import euclidean_distances
 from scipy.spatial import distance
 from sklearn.cluster import KMeans, DBSCAN
@@ -58,7 +60,7 @@ def kmean(df, general_path):
     y_res = []
     x_res = []
     df_results = pd.DataFrame(index=[n for n in df.index])
-    for n_clusters in range(2, 25):
+    for n_clusters in range(3, 25):
         curr_path = general_path + '\\' + '{}_clusters'.format(n_clusters)
         try:
             os.stat(curr_path)
@@ -92,7 +94,42 @@ def kmean(df, general_path):
             row_name = k
             s = pd.Series(row, index=cols, name=row_name)
             df_distances = df_distances.append(s)
-        dump(df_distances, 'distances', curr_path)
+        dump(df_distances, 'distances_{}'.format(n_clusters), curr_path)
+
+        labels = est.labels_
+        labels_legend = set(labels)
+        pca = decomposition.PCA()
+        pca.fit(df)
+        ## 2D projection
+        pca.n_components = 2
+        X_reduced = np.array(pca.fit_transform(df))
+        colors = cm.rainbow(np.linspace(0, 1, n_clusters))
+        for k in range(n_clusters):
+            indexes = [i for i in range(df.shape[0]) if labels[i] == k]
+            X_reduced_k = X_reduced[indexes]
+            X_sctr = [X_reduced_k[:, w] for w in range(X_reduced_k.shape[1])]
+            plt.scatter(X_sctr[0], X_sctr[1], c=[colors[k]] * len(indexes), alpha=0.5, label="cluster {}".format(k))
+        plt.legend()
+        plt.savefig(curr_path + '\\' + '2D_scatter_{}_clusters'.format(n_clusters) + '.png')
+        plt.close()
+
+        ## 3D projection
+        pca.n_components = 3
+        X_reduced = np.array(pca.fit_transform(df))
+        colors = cm.rainbow(np.linspace(0, 1, n_clusters))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        for k in range(n_clusters):
+            indexes = [i for i in range(df.shape[0]) if labels[i] == k]
+            X_reduced_k = X_reduced[indexes]
+            X_sctr = [X_reduced_k[:, w] for w in range(X_reduced_k.shape[1])]
+            ax.scatter(X_sctr[0], X_sctr[1], X_sctr[2], c=[colors[k]] * len(indexes), alpha=0.5,
+                    label="cluster {}".format(k))
+        plt.legend()
+        # plt.show()
+        plt.savefig(curr_path + '\\' + '3D_scatter_{}_clusters'.format(n_clusters) + '.png')
+        plt.close()
 
     logger.log_print("Completed on {} k's.".format(len(x_res)))
     dump(df_results, 'clusters')
