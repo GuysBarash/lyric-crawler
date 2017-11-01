@@ -118,7 +118,7 @@ def read_all_songs(urls):
 def handle_prep(loggert):
     global logger
     logger = loggert
-    logger.log_print('Fork {}'.format(value['Val']))
+    logger.log_print('Fork')
 
 
 def handle(unit):

@@ -89,6 +89,7 @@ def extract(fname):
             raise
     unit.append(all_songs)
     unit.append(all_words)
+    unit.append(fname.split('Artist_')[-1].replace('.txt', ''))
     # logger.log_print("DONE {}".format(fname))
     return unit
 
@@ -170,6 +171,60 @@ def tokens_per_artist(pool_ret, reshuffle=200, circular=True):
             df_t = df_o.copy()
             df_o['Artist_name'] = [item[0]]
             df_o['Tokens'] = [avg]
+            df = pd.concat([df, df_t], ignore_index=True)
+
+    exstra = ''
+    if circular:
+        exstra = '_Circular'
+
+    excel_full_path = 'C:\\Repos\\SongReader\\Vector' + '\\' + 'Tokens_per_artist{}.xlsx'.format(exstra)
+    logger.log_print("To excel at {}".format(excel_full_path))
+    xl_writer = pd.ExcelWriter(excel_full_path, engine='xlsxwriter', options={'encoding': 'utf-8'})
+    df.to_excel(xl_writer, sheet_name='{}_samples'.format(reshuffle), index=False)
+    xl_writer.close()
+
+    logger.log_print()
+    logger.squelch(False)
+
+
+def tokens_per_artist_no_thrsh(pool_ret, reshuffle=200, circular=True):
+    thrsh = 0
+    logger.squelch(True)
+    logger.log_print("Tokens per {} words, repeat {} times:".format(thrsh, reshuffle))
+    logger.log_print()
+
+    df_o = pd.DataFrame()
+    df_o['Artist_name'] = []
+    df_o['Words'] = []
+    df_o['Tokens'] = []
+    df_o['Ratio'] = []
+    df = df_o.copy()
+
+    for item in pool_ret:
+        if len(item[2]) >= thrsh:
+            t_avg = 0
+            for i in range(reshuffle):
+                t = copy.copy(item[2])
+                if circular:
+                    st_point = random.randint(0, len(t) - 1)
+                    if st_point + thrsh < len(t):
+                        nt = t[st_point:st_point + thrsh]
+                    else:
+                        nt = t[st_point:] + t[: (st_point + thrsh) % len(t)]
+
+                else:
+                    random.shuffle(t)
+                    nt = t[:]
+
+                t_avg += len(set(nt))
+            avg = t_avg / reshuffle
+            logger.log_print("{}\t{}".format(item[0], avg))
+
+            df_t = df_o.copy()
+            df_o['Artist_name'] = [item[0]]
+            df_o['Words'] = [len(nt)]
+            df_o['Tokens'] = [avg]
+            df_o['Ratio'] = [float(avg) / float(len(nt))]
             df = pd.concat([df, df_t], ignore_index=True)
 
     exstra = ''
@@ -352,9 +407,10 @@ def dump(df, fname='vec_norm', path=None):
 def get_raw_data(ret_pool):
     logger.log_print("Extracting raw data")
     path = r'C:\Repos\SongReader\Vector'
-    cols = ['Songs', 'Total words', 'mean per song', 'Var per song']
+    cols = ['Songs', 'Total words', 'mean per song', 'Var per song', 'English name']
     df = pd.DataFrame(columns=cols)
     for item in ret_pool:
+        eng_name = item[3]
         name = item[0]
         songDict = item[1]
         num_of_songs = len(songDict.keys())
@@ -362,7 +418,7 @@ def get_raw_data(ret_pool):
         mean = np.mean(songs_vector)
         std = np.std(songs_vector)
         sum = np.sum(songs_vector)
-        row = pd.Series([num_of_songs, sum, mean, std], index=cols, name=name)
+        row = pd.Series([num_of_songs, sum, mean, std, eng_name], index=cols, name=name)
         df = df.append(row)
     dump(df, 'Raw_data', path)
 
@@ -388,12 +444,13 @@ if __name__ == '__main__':
         # item[0] : artist name
         # item[1] : dict , key= song_name , value= list_of_words
         # item[2] : list of all words
+        # item[3] : artist name in english
 
-    # get_raw_data(all_units)
-    # dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
-    # dic = open_dict(dict_location)
-    # Artist_to_vector(all_units)
-    # tokens_per_artist(all_units, reshuffle=400, circular=False)
+    get_raw_data(all_units)
+    dict_location = r"C:\Repos\SongReader\Data\lexicon.p"
+    dic = open_dict(dict_location)
+    Artist_to_vector(all_units)
+    tokens_per_artist(all_units, reshuffle=20, circular=False)
 
     logger.log_print()
     logger.log_close()

@@ -161,6 +161,13 @@ import os
 #
 # logger.squelch(False)
 
+###########################################################
+# Flushing
+###########################################################
+# To write to file the current log even if the run is not completed
+#
+# logger.flush()
+
 
 class LoggerLevel(Enum):
     DEFLT = 0
@@ -178,7 +185,8 @@ class Msg:
                  level=LoggerLevel.DEFLT,
                  module_to_filter=None,
                  module_to_filter_designated_level=LoggerLevel.DEFLT,
-                 squelch=None, console_enabled=None):
+                 squelch=None, console_enabled=None,
+                 flush=None):
         self.str = str
         self.timer = timer
         self.stamp = datetime.now()
@@ -190,6 +198,7 @@ class Msg:
         self.level = level
         self.squelch = squelch
         self.console_enabled = console_enabled
+        self.flush = flush
         assert self.level in LoggerLevel, "ERROR: information level [{}] is not recognized".format(self.level)
 
         self.module_to_filter = module_to_filter
@@ -230,12 +239,12 @@ class Logger:
 
     def enable_logger(self):
         self.enable = True
-        
+
     def ena_logger_console(self, val=True):
-        msg = Msg("Logger console is now %s." % ("enabled" if val else "disabled"), 
-                  console_enabled = val)
+        msg = Msg("Logger console is now %s." % ("enabled" if val else "disabled"),
+                  console_enabled=val)
         self.log_queue.put(msg)
-        
+
     # Modules functions:
     def switcheModule(self, chosenModule):
         msg = Msg("Current module changed to {}".format(chosenModule), set_current_module=chosenModule)
@@ -315,6 +324,10 @@ class Logger:
                 Logger.fout.close()
                 Logger.fout = None
 
+    def flush(self):
+        msg = Msg("log flushed to file.", flush=True)
+        self.log_queue.put(msg)
+
     @staticmethod
     def initThread_static(fout, given_logger):
         global logger
@@ -353,7 +366,7 @@ class Logger:
             # Handle squalching
             if not pckg.squelch is None:
                 logger._squelch = pckg.squelch
-                
+
             if pckg.console_enabled is not None:
                 logger.console_enabled = pckg.console_enabled
 
@@ -378,6 +391,9 @@ class Logger:
             if (filter_level > pckg.level.value) and (pckg.module_to_filter is None):
                 continue
 
+            if (pckg.flush is not None) and (Logger.fout is not None):
+                Logger.fout.flush()
+
             # Determine main/process/thread
             role = "{:^8}".format("MAIN")
             if pckg.pid != logger.masterPid:
@@ -393,17 +409,28 @@ class Logger:
             # information level handling
             info_level_stamp = "[{:^5}]".format(pckg.level.name)
 
-            if logger._squelch:
-                record = "{0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
-            else:
-                record = u"{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
-            if logger.console_enabled:
-                print record
-            #else:
-            #    print "not allowed to print: %s" % record
-            if (not (Logger.fout is None)) and (not Logger.fout.closed):
-                #Logger.fout.write("%s\n" % record)
-                Logger.fout.write("{}\n".format(record.encode('utf-8')))
+            try:
+                if logger._squelch:
+                    try:
+                        record = u"{0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+                    except UnicodeDecodeError as e:
+                        record = "{0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+                else:
+                    try:
+                        record = u"{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+                    except UnicodeDecodeError as e:
+                        record = "{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
+
+                if logger.console_enabled:
+                    print record
+
+                if (not (Logger.fout is None)) and (not Logger.fout.closed):
+                    try:
+                        Logger.fout.write("{}\n".format(record.encode('utf-8')))
+                    except UnicodeDecodeError as e:
+                        Logger.fout.write("{}\n".format(record))
+            except Exception as e:
+                print "{} <Logger> pckg handling failed. dropping message. Error: \n{}".format(timeStamp, e)
 
 
 Logger.log_t = None
