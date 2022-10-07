@@ -341,8 +341,8 @@ class Logger:
 
         record = "[Info ][  WORKER ][ENVIRONMNT][TIME (TIMER )] Text msg."
         header = "--------------------------------------------------------------------------------"
-        print record
-        print header
+        print(record)
+        print(header)
         if (not (Logger.fout is None)) and (not Logger.fout.closed):
             Logger.fout.write("%s\n" % record)
             Logger.fout.write("%s\n" % header)
@@ -422,7 +422,7 @@ class Logger:
                         record = "{4}[{1}]{3}{2} {0}".format(pckg.str, role, timeStamp, level_stamp, info_level_stamp)
 
                 if logger.console_enabled:
-                    print record
+                    print(record)
 
                 if (not (Logger.fout is None)) and (not Logger.fout.closed):
                     try:
@@ -430,7 +430,7 @@ class Logger:
                     except UnicodeDecodeError as e:
                         Logger.fout.write("{}\n".format(record))
             except Exception as e:
-                print "{} <Logger> pckg handling failed. dropping message. Error: \n{}".format(timeStamp, e)
+                print("{} <Logger> pckg handling failed. dropping message. Error: \n{}".format(timeStamp, e))
 
 
 Logger.log_t = None

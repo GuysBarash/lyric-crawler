@@ -11,7 +11,8 @@ from lxml import etree
 from io import StringIO
 from Logger import Logger
 import datetime
-from Artists import *
+from Artists import artist_list
+
 global english
 global logger
 english = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -44,7 +45,9 @@ def analyze_given_song_by_link(driver, url):
                     line_words = [x for x in line_words if not bool(set(x).intersection(english))]
                     words += line_words
 
-            songName = unicode(songName)
+            # Convert song name to unicode
+            songName = songName.encode('utf-8')
+
             q.append([songName, words])
             break
         except Exception as e:
@@ -67,7 +70,7 @@ def get_all_urls(url):
 
     # Get 'next' button
     soup = bs4.BeautifulSoup(html, 'lxml')
-    next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda (x): (x.find('>>') >= 0))
+    next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda x: x.find('>>') >= 0)
     artist_hebrew_name = soup.find('p', {'id': 'breadcrumbs'}).find_all('a')[-2].text
     # Keep current page
     index_urls.append(c_url)
@@ -85,7 +88,7 @@ def get_all_urls(url):
         driver.get(c_url)
         html = driver.page_source
         soup = bs4.BeautifulSoup(html, 'lxml')
-        next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda (x): (x.find('>>') >= 0))
+        next_page = soup.find_all('a', {'class': 'artist_nav_bar'}, text=lambda x: x.find('>>') >= 0)
 
         # Get all songs from current page
         parser = etree.HTMLParser()
@@ -136,6 +139,7 @@ def handle(unit):
             else:
                 break
         except Exception as e:
+            raise e
             logger.log_print("Connection Fail for {}. Re-attempting".format(unit[1]))
         finally:
             pass
@@ -175,18 +179,15 @@ if __name__ == "__main__":
     u_sig = datetime.datetime.now().strftime("_%H%M_%d_%m_%Y")
     logger.initThread("Report{}.txt".format(u_sig))
 
-    # for local_artist in locals().keys():
-    #     if 'Artist_' in local_artist:
-    #         handle(locals()[local_artist])
-
-    all_units = []
-    for local_artist in locals().keys():
-        if 'Artist_' in local_artist:
-            all_units.append(locals()[local_artist])
-
-    p = Pool(processes=cpu_count(), initializer=handle_prep, initargs=(logger,))
-    p.imap_unordered(handle, all_units)
-    p.close()
-    p.join()
+    single_thread = False
+    if single_thread:
+        handle_prep(logger)
+        for unit in artist_list:
+            handle(unit)
+    else:
+        p = Pool(processes=cpu_count(), initializer=handle_prep, initargs=(logger,))
+        p.imap_unordered(handle, artist_list)
+        p.close()
+        p.join()
 
     logger.log_close()
