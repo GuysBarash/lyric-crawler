@@ -286,6 +286,7 @@ if __name__ == "__main__":
 
         index_summary_path = os.path.join(root_path, 'index_summary.csv')
         words_hist_path = os.path.join(root_path, 'words_hist.csv')
+        kaggle_path = os.path.join(root_path, 'kaggle.csv')
 
     section_crawling = False
     if section_crawling:
@@ -322,7 +323,9 @@ if __name__ == "__main__":
         index_summary['empty_songs'] = -1
         index_summary['words_count'] = -1
         index_summary['unique_words_count'] = -1
-        for file in os.listdir(root_path):
+
+        files_to_scan = [f for f in os.listdir(root_path) if f.endswith('.json')]
+        for file in tqdm(files_to_scan, desc='reading lyrics from jsons'):
             if file.endswith(".json"):
                 full_path = os.path.join(root_path, file)
                 with open(full_path, 'r', encoding='utf-8') as f:
@@ -356,12 +359,34 @@ if __name__ == "__main__":
         index_summary.to_csv(index_summary_path, index=False, encoding='utf-8-sig')
         logger.log_print("Summary file created at {}".format(index_summary_path))
 
-    section_build_kaggle = True
+    section_build_kaggle = False
     if section_build_kaggle:
         db = pd.DataFrame(columns=['artist', 'artist_key',
-                                   'song', 'song_key',
+                                   'song', 'song_key', 'song_url',
                                    'words', 'words count', 'unique words count',
                                    ])
+
+        url_df = pd.DataFrame(columns=['artist_key', 'song', 'url'])
+        for row_idx, artist_row in tqdm(index_summary.iterrows(),
+                                        total=index_summary.shape[0],
+                                        desc='reading urls from jsons'):
+            artist = artist_row['artist']
+            artist_key = artist_row['artist_key']
+            aritst_urls = artist_row['songs_page']
+
+            base_file_name = os.path.basename(aritst_urls)
+            index_file_path = os.path.join(index_path, base_file_name)
+
+            with open(index_file_path, 'r', encoding='utf-8') as f:
+                d = json.load(f)
+                d_songs = d['songs'].copy()
+                for song_key in list(d_songs.keys()):
+                    song = song_key
+                    song_url = d_songs[song_key]
+                    url_df = pd.concat(
+                        [url_df, pd.DataFrame([{'artist_key': artist_key, 'song': song, 'url': song_url}])],
+                        ignore_index=True)
+
         xdf = pd.DataFrame()
         for artist_idx, song_file_path in tqdm(index_summary['songs_page'].items(), total=index_summary.shape[0],
                                                desc="Building Kaggle from jsons"
@@ -375,8 +400,14 @@ if __name__ == "__main__":
                 d_songs.pop('songs_count')
                 xdf = pd.concat([xdf, d_songs], ignore_index=True)
 
-        xdf_songs = xdf['songs'].progress_apply(clean_song_list)
-        j = 3
+        xdf['songs'] = xdf['songs'].progress_apply(clean_song_list)
+
+        kaggledf = pd.merge(xdf, url_df, on=['artist_key', 'song'], how='left')
+        kaggledf['words count'] = kaggledf['songs'].progress_apply(len)
+        kaggledf['unique words count'] = kaggledf['songs'].progress_apply(lambda x: len(set(x)))
+
+        kaggledf.to_csv(kaggle_path, index=False, encoding='utf-8-sig')
+        logger.log_print("Kaggle file created at {}".format(kaggle_path))
 
     section_words_extraction = True
     if section_words_extraction:
