@@ -19,6 +19,7 @@ import json
 import os
 import numpy as np
 import requests
+from itertools import chain
 
 global english
 global hebrew
@@ -33,33 +34,50 @@ tqdm.pandas()
 
 class WordNormalizer:
     def __init__(self):
-        pass
+        self.data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
-    def normalize(self, word_list, top_n=None):
-        if top_n is None:
-            word_list = word_list[:top_n]
-        request = {
-            'token': 'lptwXKtDgLEzzjW',
-            'readable': False,
-            'words': word_list,
-        }
-        print("Sending request to Hebrew NLP (Word count: {})".format(len(word_list)))
-        st = datetime.datetime.now()
-        result = requests.post('https://hebrew-nlp.co.il/service/Morphology/Analyze', json=request).json()
-        print("Got response from Hebrew NLP. Duration: {}".format(datetime.datetime.now() - st))
+        self.converstion_dict = None
 
-        res = pd.DataFrame(columns=['base', 'word'], index=range(len(word_list)))
-        res['word'] = word_list
-        res['base'] = [result[i][0]['baseWord'] for i in range(len(result))]
-        return res
+    def normalize(self, word_list, top_n=None, use_memory=True):
+        if use_memory:
+            return self._normalize_load_from_memory(word_list, top_n)
+        else:
+            if top_n is None:
+                word_list = word_list[:top_n]
+            request = {
+                'token': 'lptwXKtDgLEzzjW',
+                'readable': False,
+                'words': word_list,
+            }
+            print("Sending request to Hebrew NLP (Word count: {})".format(len(word_list)))
+            st = datetime.datetime.now()
+            result = requests.post('https://hebrew-nlp.co.il/service/Morphology/Analyze', json=request).json()
+            print("Got response from Hebrew NLP. Duration: {}".format(datetime.datetime.now() - st))
+
+            res = pd.DataFrame(columns=['base', 'word'], index=range(len(word_list)))
+            res['word'] = word_list
+            res['base'] = [result[i][0]['baseWord'] for i in range(len(result))]
+            return res
 
     def _normalize_load_from_memory(self, word_list, top_n=None):
-        path = 'res.csv'
+        path = os.path.join(self.data_path, 'words_2_base.csv')
+        conversion_table = r'words_2_base_conversion.json'
+        conversion_full_path = os.path.join(self.data_path, conversion_table)
         if os.path.exists(path):
             res = pd.read_csv(path, index_col=0)
         else:
-            res = self.normalize(word_list, top_n)
+            res = self.normalize(word_list, top_n, use_memory=False)
             res.to_csv(path, encoding='utf-8-sig')
+
+        if os.path.exists(conversion_full_path):
+            with open(conversion_full_path, 'r', encoding='utf-8-sig') as f:
+                self.converstion_dict = json.load(f)
+        else:
+            conversion = dict(zip(res['word'], res['base']))
+            with open(conversion_full_path, 'w', encoding='utf-8-sig') as f:
+                json.dump(conversion, f, ensure_ascii=False, indent=4)
+
+            self.converstion_dict = conversion
 
         return res
 
@@ -276,17 +294,25 @@ if __name__ == "__main__":
 
     section_path_creation = True
     if section_path_creation:
-        root_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-        if not os.path.exists(root_path):
-            os.makedirs(root_path)
+        root_data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+        if not os.path.exists(root_data_path):
+            os.makedirs(root_data_path)
 
-        index_path = os.path.join(root_path, 'index')
+        index_path = os.path.join(root_data_path, 'index')
         if not os.path.exists(index_path):
             os.makedirs(index_path)
 
-        index_summary_path = os.path.join(root_path, 'index_summary.csv')
-        words_hist_path = os.path.join(root_path, 'words_hist.csv')
-        kaggle_path = os.path.join(root_path, 'kaggle.csv')
+        labels_path = os.path.join(root_data_path, 'labels')
+        if not os.path.exists(labels_path):
+            os.makedirs(labels_path)
+
+        mapping_path = os.path.join(root_data_path, 'mapping')
+        if not os.path.exists(mapping_path):
+            os.makedirs(mapping_path)
+
+        index_summary_path = os.path.join(root_data_path, 'index_summary.csv')
+        words_hist_path = os.path.join(root_data_path, 'words_hist.csv')
+        kaggle_path = os.path.join(root_data_path, 'kaggle.csv')
 
     section_crawling = False
     if section_crawling:
@@ -303,11 +329,11 @@ if __name__ == "__main__":
             p.close()
             p.join()
 
-    section_summary = True
+    section_summary = False
     if section_summary:
         print("Summary:")
-        root_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-        index_path = os.path.join(root_path, 'index')
+        root_data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+        index_path = os.path.join(root_data_path, 'index')
 
         index_summary = pd.DataFrame(columns=['artist', 'artist_key', 'index_page', 'songs_page', 'songs_count'])
         for file in os.listdir(index_path):
@@ -324,11 +350,11 @@ if __name__ == "__main__":
         index_summary['words_count'] = -1
         index_summary['unique_words_count'] = -1
 
-        files_to_scan = [f for f in os.listdir(root_path) if f.endswith('.json')]
+        files_to_scan = [f for f in os.listdir(root_data_path) if f.endswith('.json')]
         for file in tqdm(files_to_scan, desc='reading lyrics from jsons'):
-            if file.endswith(".json"):
-                full_path = os.path.join(root_path, file)
-                with open(full_path, 'r', encoding='utf-8') as f:
+            if file.endswith(".json") and file.startswith('Artist'):
+                full_path = os.path.join(root_data_path, file)
+                with open(full_path, 'r', encoding='utf-8-sig') as f:
                     d = json.load(f)
                     sr = pd.Series(d)
                     sr.pop('songs')
@@ -409,7 +435,7 @@ if __name__ == "__main__":
         kaggledf.to_csv(kaggle_path, index=False, encoding='utf-8-sig')
         logger.log_print("Kaggle file created at {}".format(kaggle_path))
 
-    section_words_extraction = True
+    section_words_extraction = False
     if section_words_extraction:
         logger.log_print("Words extraction:")
         index_summary = pd.read_csv(index_summary_path, encoding='utf-8-sig')
@@ -441,24 +467,120 @@ if __name__ == "__main__":
         normalized_words = pd.merge(normalized_words, words_hist, on='word')
         normalized_words.rename(columns={'count': 'word count'}, inplace=True)
 
-        histdf = pd.DataFrame(columns=['base', 'count', 'example 1', 'example 2', 'example 3'],
-                              index=range(len(bases)))
-        for i in tqdm(range(len(bases)), desc='Words base extraction'):
-            base = bases[i]
-            subdf = normalized_words[normalized_words['base'] == base]
-            count = subdf['word count'].sum()
-            examples = list(subdf['word'].unique())
-            examples_3 = examples[:3]
-            examples_3 = np.append(examples_3, [''] * (3 - len(examples_3)))
-            histdf.loc[i, 'base'] = base
-            histdf.loc[i, 'count'] = count
-            histdf.loc[i, 'example 1'] = examples_3[0]
-            histdf.loc[i, 'example 2'] = examples_3[1]
-            histdf.loc[i, 'example 3'] = examples_3[2]
+        subsection_create_word_base = True
+        if subsection_create_word_base:
+            histdf = pd.DataFrame(columns=['base', 'count', 'example 1', 'example 2', 'example 3'],
+                                  index=range(len(bases)))
+            for i in tqdm(range(len(bases)), desc='Words base extraction'):
+                base = bases[i]
+                subdf = normalized_words[normalized_words['base'] == base]
+                count = subdf['word count'].sum()
+                examples = list(subdf['word'].unique())
+                examples_3 = examples[:3]
+                examples_3 = np.append(examples_3, [''] * (3 - len(examples_3)))
+                histdf.loc[i, 'base'] = base
+                histdf.loc[i, 'count'] = count
+                histdf.loc[i, 'example 1'] = examples_3[0]
+                histdf.loc[i, 'example 2'] = examples_3[1]
+                histdf.loc[i, 'example 3'] = examples_3[2]
 
-        histdf.sort_values(by='count', ascending=False, inplace=True)
-        histdf.to_csv(words_hist_path, index=False, encoding='utf-8-sig')
-        logger.log_print("Words histogram file created at {}".format(words_hist_path))
+            histdf.sort_values(by='count', ascending=False, inplace=True)
+            histdf.to_csv(words_hist_path, index=False, encoding='utf-8-sig')
+            logger.log_print("Words histogram file created at {}".format(words_hist_path))
+
+    section_build_map_words_to_sentiments = True
+    if section_build_map_words_to_sentiments:
+        convertion_dict_path = os.path.join(root_data_path, 'words_2_base_conversion.json')
+        word_hist_labels = os.path.join(labels_path, 'words_hist.csv')
+        word_2_sentiment_path = os.path.join(labels_path, 'word_2_sentiment.csv')
+
+        logger.log_print("Build map songs to sentiments:")
+        if not os.path.exists(word_2_sentiment_path):
+            with open(convertion_dict_path, 'r', encoding='utf-8-sig') as f:
+                converstion_dict = json.load(f)
+
+            sentidmentdf = pd.read_csv(word_hist_labels, encoding='utf-8-sig', low_memory=False)
+            good_cols = [c for c in sentidmentdf.columns if c not in ['count'] + [f'example {i}' for i in range(10)]]
+            sentidmentdf = sentidmentdf[good_cols]
+            senti_cols = [c for c in sentidmentdf.columns if c != 'base']
+            for c in senti_cols:
+                sentidmentdf[c] = sentidmentdf[c].eq('x')
+
+            words_2_base = pd.DataFrame(columns=['word', 'base'])
+            words_2_base['word'] = converstion_dict.keys()
+            words_2_base['base'] = converstion_dict.values()
+
+            words_2_sentiment = pd.merge(words_2_base, sentidmentdf, left_on='base', right_on='base', how='left')
+            words_2_sentiment.set_index('word', inplace=True)
+            words_2_sentiment.to_csv(word_2_sentiment_path, encoding='utf-8-sig')
+            logger.log_print("Words to sentiment file created at {}".format(word_2_sentiment_path))
+        else:
+            words_2_sentiment = pd.read_csv(word_2_sentiment_path, encoding='utf-8-sig', index_col='word')
+            logger.log_print("Words to sentiment file loaded from {}".format(word_2_sentiment_path))
+
+    section_build_map_songs_to_sentiments = True
+    if section_build_map_songs_to_sentiments:
+        songs_map_path = os.path.join(mapping_path, 'songs_map.csv')
+        if not os.path.exists(songs_map_path):
+            kaggledf = pd.read_csv(kaggle_path, encoding='utf-8-sig')
+            if type(kaggledf['songs'].iloc[0]) == str:
+                kaggledf['songs'] = kaggledf['songs'].apply(lambda x: eval(x))
+
+            all_words = list(set(list(chain(*kaggledf['songs'].values.tolist()))))
+            all_used_words = words_2_sentiment.index.to_list()
+            words_not_used = list(set(all_words) - set(all_used_words))
+
+            missing_words = pd.DataFrame(columns=words_2_sentiment.columns, data=False, index=words_not_used)
+            missing_words['base'] = missing_words.index
+            words_2_sentiment = pd.concat([words_2_sentiment, missing_words])
+            words_2_sentiment.pop('base')
+
+
+            def get_sentiment(row_idx, row):
+                l = row['songs']
+                ret = words_2_sentiment.loc[l]
+                ret = ret.sum()
+                # ret['total'] = len(l)
+                ret.name = row_idx
+                return ret
+
+
+            tl = list()
+            for row_idx, row in tqdm(kaggledf.iterrows(), desc='Songs to sentiments', total=len(kaggledf)):
+                sentiments = get_sentiment(row_idx, row)
+                tl.append(sentiments)
+            redf = pd.concat(tl, axis=1).T
+            songs_sentiment = pd.merge(kaggledf, redf, left_index=True, right_index=True)
+            songs_sentiment.to_csv(songs_map_path, encoding='utf-8-sig')
+            logger.log_print("Songs to sentiment file created at {}".format(songs_map_path))
+
+        else:
+            songs_sentiment = pd.read_csv(songs_map_path, encoding='utf-8-sig', index_col=0)
+            logger.log_print("Songs to sentiment file loaded from {}".format(songs_map_path))
+
+    section_build_map_artists_to_sentiments = True
+    if section_build_map_artists_to_sentiments:
+        per_artist_path = os.path.join(mapping_path, 'artist_sentiment.csv')
+        if not os.path.exists(per_artist_path):
+            word_hist_labels = os.path.join(labels_path, 'Index_summary.csv')
+            artistdf = pd.read_csv(word_hist_labels, encoding='utf-8-sig', low_memory=True)
+
+            artists_keys = songs_sentiment['artist_key'].unique().tolist()
+
+            sentiments_cols = [c for c in songs_sentiment.columns if
+                               c not in ['artist', 'songs', 'song', 'artist_key', 'url', 'unique words count']]
+            id_cols = ['artist', 'artist_key']
+            perartistdf = pd.DataFrame(columns=id_cols + sentiments_cols,
+                                       index=artistdf.index,
+                                       )
+            perartistdf[id_cols] = artistdf[id_cols]
+
+            per_artist_df = songs_sentiment.groupby('artist_key')[sentiments_cols].sum().astype(int)
+            per_artist_df.to_csv(per_artist_path, encoding='utf-8-sig')
+            logger.log_print("Per artist sentiment file created at {}".format(per_artist_path))
+        else:
+            per_artist_df = pd.read_csv(per_artist_path, encoding='utf-8-sig', index_col=0)
+            logger.log_print("Per artist sentiment file loaded from {}".format(per_artist_path))
 
     logger.log_print("FINNISH")
     logger.log_close()
