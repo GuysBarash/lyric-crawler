@@ -294,7 +294,8 @@ if __name__ == "__main__":
 
     section_path_creation = True
     if section_path_creation:
-        root_data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+        root_path = os.path.dirname(os.path.realpath(__file__))
+        root_data_path = os.path.join(root_path, 'data')
         if not os.path.exists(root_data_path):
             os.makedirs(root_data_path)
 
@@ -313,6 +314,7 @@ if __name__ == "__main__":
         index_summary_path = os.path.join(root_data_path, 'index_summary.csv')
         words_hist_path = os.path.join(root_data_path, 'words_hist.csv')
         kaggle_path = os.path.join(root_data_path, 'kaggle.csv')
+        per_artist_path = os.path.join(mapping_path, 'artist_sentiment.csv')
 
     section_crawling = False
     if section_crawling:
@@ -488,10 +490,11 @@ if __name__ == "__main__":
             histdf.to_csv(words_hist_path, index=False, encoding='utf-8-sig')
             logger.log_print("Words histogram file created at {}".format(words_hist_path))
 
-    section_build_map_words_to_sentiments = True
+    section_build_map_words_to_sentiments = False
     if section_build_map_words_to_sentiments:
-        convertion_dict_path = os.path.join(root_data_path, 'words_2_base_conversion.json')
         word_hist_labels = os.path.join(labels_path, 'words_hist.csv')
+        convertion_dict_path = os.path.join(root_data_path, 'words_2_base_conversion.json')
+
         word_2_sentiment_path = os.path.join(labels_path, 'word_2_sentiment.csv')
 
         logger.log_print("Build map songs to sentiments:")
@@ -518,7 +521,7 @@ if __name__ == "__main__":
             words_2_sentiment = pd.read_csv(word_2_sentiment_path, encoding='utf-8-sig', index_col='word')
             logger.log_print("Words to sentiment file loaded from {}".format(word_2_sentiment_path))
 
-    section_build_map_songs_to_sentiments = True
+    section_build_map_songs_to_sentiments = False
     if section_build_map_songs_to_sentiments:
         songs_map_path = os.path.join(mapping_path, 'songs_map.csv')
         if not os.path.exists(songs_map_path):
@@ -558,9 +561,9 @@ if __name__ == "__main__":
             songs_sentiment = pd.read_csv(songs_map_path, encoding='utf-8-sig', index_col=0)
             logger.log_print("Songs to sentiment file loaded from {}".format(songs_map_path))
 
-    section_build_map_artists_to_sentiments = True
+    section_build_map_artists_to_sentiments = False
     if section_build_map_artists_to_sentiments:
-        per_artist_path = os.path.join(mapping_path, 'artist_sentiment.csv')
+
         if not os.path.exists(per_artist_path):
             word_hist_labels = os.path.join(labels_path, 'Index_summary.csv')
             artistdf = pd.read_csv(word_hist_labels, encoding='utf-8-sig', low_memory=True)
@@ -582,5 +585,218 @@ if __name__ == "__main__":
             per_artist_df = pd.read_csv(per_artist_path, encoding='utf-8-sig', index_col=0)
             logger.log_print("Per artist sentiment file loaded from {}".format(per_artist_path))
 
+    section_answer_questions = True
+    if section_answer_questions:
+        results_path = os.path.join(root_path, 'results')
+        genres_path = os.path.join(results_path, 'genres_and_era.csv')
+        complete_artists_path = os.path.join(results_path, 'complete_artists.csv')
+        artists_sentiments_reduced = os.path.join(results_path, 'artist_sentiments_reduced.csv')
+
+        if not os.path.exists(results_path):
+            os.mkdir(results_path)
+
+        artists_info_df = pd.read_csv(index_summary_path, encoding='utf-8-sig', index_col=0)
+        artists_sentiment_df = pd.read_csv(per_artist_path, encoding='utf-8-sig', index_col=0)
+        artists_sentiment_df = artists_sentiment_df.loc[artists_info_df['artist_key'].values.tolist()]
+
+        old_col = r'שנות ה-60- 90׳'
+        new_col = 'שנות ה-90׳- כיום'
+        east_col = r'Mizrahit'
+        west_col = r'Pop+ Rock+ Hip-Hop'
+        male_col = 'Male'
+        female_col = 'Female'
+
+        artists_info_df[old_col] = artists_info_df[old_col].eq('x')
+        old_artists = artists_info_df[artists_info_df[old_col]]['artist_key'].values.tolist()
+        artists_info_df[new_col] = artists_info_df[new_col].eq('x')
+        new_artists = artists_info_df[artists_info_df[new_col]]['artist_key'].values.tolist()
+        artists_info_df[east_col] = artists_info_df[east_col].eq('X')
+        east_artists = artists_info_df[artists_info_df[east_col]]['artist_key'].values.tolist()
+        artists_info_df[west_col] = artists_info_df[west_col].eq('X')
+        west_artists = artists_info_df[artists_info_df[west_col]]['artist_key'].values.tolist()
+
+        artists_info_df[male_col] = artists_info_df[male_col].eq('X')
+        male_artists = artists_info_df[artists_info_df[male_col]]['artist_key'].values.tolist()
+        artists_info_df[female_col] = artists_info_df[female_col].eq('X')
+        female_artists = artists_info_df[artists_info_df[female_col]]['artist_key'].values.tolist()
+
+        terms = ['אהבה',
+                 'תקווה',
+                 'יהדות',
+                 'פוליטיקה',
+                 'אינדיווידואל',
+                 'קולקטיב',
+                 'אלכוהול/סמים',
+                 'עלבונות/ קללה',
+                 'סלנג',
+                 'מילים בשפות אחרות',
+                 'מילים באנגלית',
+                 'מילים בערבית',
+                 'מילים מומצאות',
+                 'מילים משובשות']
+
+        double_terms = [
+            ('צה״ל', 'מלחמה'),
+            ('עיירות פיתוח', 'קיפוח'),
+            ('ישראל', 'ערים ומקומות בישראל'),
+            ('משפחה', 'ילדים'),
+        ]
+
+        genre_df = pd.DataFrame(columns=[old_col, new_col, east_col, west_col, male_col, female_col], index=terms)
+        artist_df = pd.DataFrame(columns=artists_sentiment_df.index, index=terms)
+        for term in terms:
+            sentiments = artists_sentiment_df[term] / artists_sentiment_df['words count']
+            # Normalize by standard deviation
+            old_new_sentiment = sentiments.loc[old_artists + new_artists]
+            old_new_sentiment = (old_new_sentiment - old_new_sentiment.mean()) / old_new_sentiment.std()
+
+            east_west_sentiment = sentiments.loc[east_artists + west_artists]
+            east_west_sentiment = (east_west_sentiment - east_west_sentiment.mean()) / east_west_sentiment.std()
+
+            male_female_sentiments = sentiments.loc[male_artists + female_artists]
+            male_female_sentiments = (
+                                             male_female_sentiments - male_female_sentiments.mean()) / male_female_sentiments.std()
+
+            sentiments_all = (sentiments - sentiments.mean()) / sentiments.std()
+
+            genre_df.loc[term, old_col] = old_new_sentiment[old_artists].median().round(2)
+            genre_df.loc[term, new_col] = old_new_sentiment[new_artists].median().round(2)
+            genre_df.loc[term, east_col] = east_west_sentiment[east_artists].median().round(2)
+            genre_df.loc[term, west_col] = east_west_sentiment[west_artists].median().round(2)
+            genre_df.loc[term, male_col] = male_female_sentiments[male_artists].median().round(2)
+            genre_df.loc[term, female_col] = male_female_sentiments[female_artists].median().round(2)
+
+            artist_df.loc[term] = sentiments_all.round(2)
+
+        double_terms = [(f'{t1} + {t2}', (t1, t2)) for t1, t2 in double_terms]
+        double_genre_df = pd.DataFrame(columns=[old_col, new_col, east_col, west_col, male_col, female_col],
+                                       index=[t[0] for t in double_terms])
+        double_artist_df = pd.DataFrame(columns=artists_sentiment_df.index, index=[t[0] for t in double_terms])
+        for term, (t1, t2) in double_terms:
+            sentiments = (artists_sentiment_df[t1] + artists_sentiment_df[t2]) / artists_sentiment_df['words count']
+            # Normalize by standard deviation
+            old_new_sentiment = sentiments.loc[old_artists + new_artists]
+            old_new_sentiment = (old_new_sentiment - old_new_sentiment.mean()) / old_new_sentiment.std()
+
+            east_west_sentiment = sentiments.loc[east_artists + west_artists]
+            east_west_sentiment = (east_west_sentiment - east_west_sentiment.mean()) / east_west_sentiment.std()
+
+            male_female_sentiments = sentiments.loc[male_artists + female_artists]
+            male_female_sentiments = (
+                                             male_female_sentiments - male_female_sentiments.mean()) / male_female_sentiments.std()
+
+            sentiments_all = (sentiments - sentiments.mean()) / sentiments.std()
+
+            double_genre_df.loc[term, old_col] = old_new_sentiment[old_artists].median().round(2)
+            double_genre_df.loc[term, new_col] = old_new_sentiment[new_artists].median().round(2)
+            double_genre_df.loc[term, east_col] = east_west_sentiment[east_artists].median().round(2)
+            double_genre_df.loc[term, west_col] = east_west_sentiment[west_artists].median().round(2)
+            double_genre_df.loc[term, male_col] = male_female_sentiments[male_artists].median().round(2)
+            double_genre_df.loc[term, female_col] = male_female_sentiments[female_artists].median().round(2)
+
+            double_artist_df.loc[term] = sentiments_all.round(2)
+
+        artist_df = pd.concat([artist_df, double_artist_df])
+        genre_df = pd.concat([genre_df, double_genre_df])
+
+        # get common indexes
+        common_indexes = set(genre_df.index).intersection(set(double_genre_df.index))
+        artist_df = artist_df.T
+
+        genre_df.to_csv(genres_path, encoding='utf-8-sig')
+        artist_df.to_csv(complete_artists_path, encoding='utf-8-sig')
+        artists_sentiment_df.to_csv(artists_sentiments_reduced, encoding='utf-8-sig')
+        logger.log_print("Genres and artists sentiment file created at {}".format(results_path))
+
     logger.log_print("FINNISH")
     logger.log_close()
+
+terms = [
+    # 'אהבה',
+    # # 'חיבה',
+    # # 'כעס',
+    # 'תקווה',
+    # # 'חיים',
+    # # 'מוות',
+    # # 'מחלה/ פציעה/ מגבלה',
+    # # 'עצב',
+    # # 'פרידה',
+    # # 'שמחה',
+    # # 'שלילי',
+    # # 'חיובי',
+    # # 'דיכאון',
+    # # 'פחד',
+    # # 'כאב',
+    # # 'רגש חיובי',
+    # # 'רגש שלילי',
+    # # 'הצלחה',
+    # # 'שלום',
+    # # 'מלחמה',
+    # # 'משפחה',
+    # # 'ילדים',
+    # 'יהדות',
+    # # 'דת',
+    # # 'חגים ומועדים',
+    # # '(כינויי) זמן',
+    # # 'חודשי השנה',
+    # 'פוליטיקה',
+    # # 'מדינה/ ממשלה',
+    # # 'עונות השנה',
+    # 'אינדיווידואל',
+    # 'קולקטיב',
+    # # 'מחאה',
+    # # 'קיפוח',
+    # # 'מחמאות',
+    # # 'מילת תיאור',
+    # # 'מוסיקה',
+    # # 'איברי הגוף',
+    # # 'תכונה חיצונית',
+    # # 'מקום',
+    # # 'ארצות',
+    # # 'ערים בעולם/ חבלי ארץ',
+    # # 'ערים ומקומות בישראל',
+    # # 'עיירות פיתוח',
+    # # 'ישראל',
+    # # 'חורף',
+    # # 'קיץ',
+    # # 'מקצוע',
+    # # 'צבא',
+    # # 'צה״ל',
+    # # 'חיות',
+    # # 'אוכל',
+    # 'אלכוהול/סמים',
+    # # 'שתייה',
+    # 'עלבונות/ קללה',
+    # # 'לילה',
+    # # 'מספרים',
+    # # 'צבעים',
+    # # 'שם אמן',
+    # # 'שמות',
+    # # 'נשים',
+    # # 'גברים',
+    # # 'גיל',
+    # # 'טבע',
+    # # 'אופנה',
+    # # 'אלימות',
+    # # 'כסף',
+    # # 'תכונות',
+    # # 'זיכרון (נוסטלגי)ֿ',
+    # # 'זיכרון (אבל)',
+    # 'סלנג',
+    # # 'כלי תחבורה',
+    # 'מילים בשפות אחרות',
+    # 'מילים באנגלית',
+    # 'מילים בערבית',
+    # # 'מוצא',
+    # # 'שפות',
+    # # 'השכלה',
+    # # 'תרבות- תחביבים- ספורט',
+    # # 'מילת שאלה',
+    # # 'מילת קישור',
+    # # 'כינויי גוף',
+    # # 'שייכות',
+    # # 'כינויי רמז',
+    # # 'מילת יחס',
+    # 'מילים מומצאות',
+    # 'מילים משובשות',
+]
